@@ -1,0 +1,17 @@
+# IntelliJ IDEA configuration files
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Keystore files (if applicable)
+*.jks
+*.keystore
+
+# Crash logs and performance dumps
+java_pid*.hprof
+*.log
+
+# Windows thumbnail cache and macOS folder attributes
+Thumbs.db
+.DS_Store
