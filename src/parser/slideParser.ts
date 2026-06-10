@@ -140,23 +140,26 @@ function processLine(line: string, lineNum: number, state: ParserState): void {
 
   // Open code fence
   if (line.startsWith('```')) {
+    if (state.inTable) { flushTable(state); }
+    if (!state.currentSlide) openSlide({}, lineNum, state);
     state.inCodeFence = true;
     state.codeFenceLang = line.slice(3).trim();
     state.codeFenceLines = [];
-    if (state.inTable) { flushTable(state); }
     return;
   }
 
   // Open math block
   if (line.trim() === '$$') {
+    if (state.inTable) { flushTable(state); }
+    if (!state.currentSlide) openSlide({}, lineNum, state);
     state.inMathBlock = true;
     state.mathLines = [];
-    if (state.inTable) { flushTable(state); }
     return;
   }
 
   // Table rows
   if (line.trim().startsWith('|')) {
+    if (!state.currentSlide) openSlide({}, lineNum, state);
     state.tableLines.push(line);
     state.inTable = true;
     return;
