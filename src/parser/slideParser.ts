@@ -1,4 +1,4 @@
-import type { SlideDSLDocument, FrontMatter, Section, Slide, SlideElement } from './types.ts';
+import type { SlideDSLDocument, FrontMatter, Section, Slide, SlideElement, ChartData, KeyframeStop } from './types.ts';
 import { ParseError } from './types.ts';
 import { parseAttributes, parseAnimationAttr } from './attrParser.ts';
 import { parseDirective } from './directiveParser.ts';
@@ -232,6 +232,22 @@ function processLine(line: string, lineNum: number, state: ParserState): void {
           };
         }
       } else {
+        // Finalize chart data
+        if (popped.type === 'chart') {
+          const chartType = popped.element.attributes?.['type'] ?? 'bar';
+          popped.element.chartData = parseChartData(popped.element.content ?? '', chartType);
+        }
+
+        // Finalize keyframe stops
+        if (popped.type === 'keyframes') {
+          popped.element.keyframeStops = parseKeyframeStops(popped.element.content ?? '');
+        }
+
+        // Finalize path
+        if (popped.type === 'path') {
+          popped.element.pathD = popped.element.content?.trim();
+        }
+
         appendElement(popped.element, state);
       }
     }
@@ -540,4 +556,78 @@ function parseSimpleYaml(text: string): Record<string, unknown> {
 function getString(obj: Record<string, unknown>, key: string): string | undefined {
   const v = obj[key];
   return typeof v === 'string' ? v : undefined;
+}
+
+function parseChartData(raw: string, chartType: string): ChartData {
+  const lines = raw.split('\n').filter(l => l.trim());
+  const result: ChartData = {
+    type: chartType as ChartData['type'],
+    datasets: [],
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+
+    if (line.startsWith('labels:')) {
+      // labels: ["Q1", "Q2"]
+      const match = line.match(/labels:\s*(\[.*\])/);
+      if (match) {
+        try {
+          result.labels = JSON.parse(match[1].replace(/'/g, '"'));
+        } catch { /* ignore */ }
+      }
+      i++;
+      continue;
+    }
+
+    if (line === 'datasets:') {
+      i++;
+      while (i < lines.length) {
+        const dLine = lines[i];
+        const labelMatch = dLine.match(/^\s*-\s+label:\s+"?([^"]+)"?/);
+        if (!labelMatch) { i++; continue; }
+        const dataset: { label: string; data: number[]; color?: string } = {
+          label: labelMatch[1],
+          data: [],
+        };
+        i++;
+        while (i < lines.length) {
+          const inner = lines[i].trim();
+          if (inner.startsWith('data:')) {
+            const dataMatch = inner.match(/data:\s*(\[.*\])/);
+            if (dataMatch) {
+              try { dataset.data = JSON.parse(dataMatch[1]); } catch { /* ignore */ }
+            }
+          } else if (inner.startsWith('color:')) {
+            dataset.color = inner.replace(/^color:\s*/, '').replace(/"/g, '');
+          } else if (inner.startsWith('- ') || inner.startsWith('label:')) {
+            break;
+          }
+          i++;
+        }
+        result.datasets.push(dataset);
+      }
+      continue;
+    }
+
+    i++;
+  }
+  return result;
+}
+
+function parseKeyframeStops(raw: string): KeyframeStop[] {
+  const stops: KeyframeStop[] = [];
+  for (const line of raw.split('\n')) {
+    const match = line.trim().match(/^(\d+)%\s*\{(.*)\}/);
+    if (!match) continue;
+    const percent = Number(match[1]);
+    const propsRaw = match[2];
+    const props: Record<string, string> = {};
+    for (const kv of propsRaw.matchAll(/([\w-]+)="([^"]*)"/g)) {
+      props[kv[1]] = kv[2];
+    }
+    stops.push({ percent, props });
+  }
+  return stops;
 }

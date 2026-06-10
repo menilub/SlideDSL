@@ -150,3 +150,67 @@ test('paragraph fallback for plain text', () => {
   assert.equal(doc.slides[0].elements[0].type, 'paragraph');
   assert.equal(doc.slides[0].elements[0].content, 'Just some text.');
 });
+
+test('parses ::: notes block attaches to slide', () => {
+  const src = `---\ntitle: "T"\n---\n\n# Slide\n\n::: notes\nHello notes.\n:::\n`;
+  const doc = parseDocument(src, 'test.md');
+  assert.ok(doc.slides[0].notes);
+  assert.equal(doc.slides[0].notes?.raw, 'Hello notes.');
+});
+
+test('parses ::: notes block extracts markers', () => {
+  const src = `---\ntitle: "T"\n---\n\n# Slide\n\n::: notes\nHello <marker: step1> world\n:::\n`;
+  const doc = parseDocument(src, 'test.md');
+  assert.deepEqual(doc.slides[0].notes?.markers, ['step1']);
+});
+
+test('parses ::: chart block with datasets', () => {
+  const src = `---\ntitle: "T"\n---\n\n::: chart {type="bar" id="c1"}\nlabels: ["Q1", "Q2"]\ndatasets:\n  - label: "Rev"\n    data: [100, 200]\n:::\n`;
+  const doc = parseDocument(src, 'test.md');
+  const chart = doc.slides[0].elements[0];
+  assert.equal(chart.type, 'chart');
+  assert.equal(chart.id, 'c1');
+  assert.ok(chart.chartData);
+  assert.equal(chart.chartData?.type, 'bar');
+  assert.equal(chart.chartData?.datasets.length, 1);
+  assert.equal(chart.chartData?.datasets[0].label, 'Rev');
+  assert.deepEqual(chart.chartData?.datasets[0].data, [100, 200]);
+});
+
+test('parses ::: keyframes block with stops', () => {
+  const src = `---\ntitle: "T"\n---\n\n::: keyframes {id="kf-fly"}\n0% { opacity="0" transform="translateY(20px)" }\n100% { opacity="1" transform="translateY(0)" }\n:::\n`;
+  const doc = parseDocument(src, 'test.md');
+  const kf = doc.slides[0].elements[0];
+  assert.equal(kf.type, 'keyframes');
+  assert.equal(kf.id, 'kf-fly');
+  assert.equal(kf.keyframeStops?.length, 2);
+  assert.equal(kf.keyframeStops?.[0].percent, 0);
+  assert.equal(kf.keyframeStops?.[0].props['opacity'], '0');
+});
+
+test('parses ::: shape block', () => {
+  const src = `---\ntitle: "T"\n---\n\n::: shape {type="rectangle" id="s1"}\n:::\n`;
+  const doc = parseDocument(src, 'test.md');
+  const shape = doc.slides[0].elements[0];
+  assert.equal(shape.type, 'shape');
+  assert.equal(shape.id, 's1');
+});
+
+test('parses nested ::: grid with ::: cell children', () => {
+  const src = `---\ntitle: "T"\n---\n\n::: grid {columns="3"}\n::: cell {col="1" row="1"}\nA\n:::\n:::\n`;
+  const doc = parseDocument(src, 'test.md');
+  const grid = doc.slides[0].elements[0];
+  assert.equal(grid.type, 'grid');
+  assert.equal(grid.attributes?.['columns'], '3');
+  assert.equal(grid.children?.length, 1);
+  assert.equal(grid.children?.[0].type, 'cell');
+});
+
+test('parses ::: container with column children', () => {
+  const src = `---\ntitle: "T"\n---\n\n::: container\n::: column\n# Left\n:::\n::: column\n# Right\n:::\n:::\n`;
+  const doc = parseDocument(src, 'test.md');
+  const container = doc.slides[0].elements[0];
+  assert.equal(container.type, 'container');
+  assert.equal(container.children?.length, 2);
+  assert.equal(container.children?.[0].type, 'column');
+});
