@@ -179,8 +179,10 @@ export interface Issue {
 }
 
 export class ParseError extends Error {
-  constructor(message: string, public readonly line?: number) {
+  readonly line?: number;
+  constructor(message: string, line?: number) {
     super(message);
     this.name = 'ParseError';
+    this.line = line;
   }
 }
