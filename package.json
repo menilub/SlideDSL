@@ -1,0 +1,14 @@
+{
+  "name": "slidedsl-validator",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-strip-types --test tests/parser/attrParser.test.ts tests/parser/directiveParser.test.ts tests/parser/slideParser.test.ts tests/validators/structural.test.ts tests/validators/semantic.test.ts tests/validators/lint.test.ts",
+    "validate": "node --experimental-strip-types src/cli.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "ts-node": "^10.9.0",
+    "@types/node": "^20.0.0"
+  }
+}
