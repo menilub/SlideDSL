@@ -1,0 +1,12 @@
+# Code owners for SlideDSL.
+#
+# Every pull request automatically requests a review from the owner(s) listed
+# below. This does NOT force an approval unless the branch ruleset for `main`
+# has "Require review from Code Owners" enabled — by default it just makes sure
+# the maintainer is notified and added as a reviewer on every PR.
+#
+# Syntax: <path-pattern>  <@user-or-team> ...
+# Later matches take precedence over earlier ones.
+
+# Default owner for everything in the repo:
+*       @menilub
