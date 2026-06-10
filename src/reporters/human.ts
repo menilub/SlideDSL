@@ -7,8 +7,11 @@ export function formatHuman(issues: Issue[], filePath: string): string {
     '',
   ];
 
+  const errors = issues.filter(i => i.severity === 'error').length;
+  const warnings = issues.filter(i => i.severity === 'warning').length;
+
   if (issues.length === 0) {
-    lines.push('✓ No issues found.');
+    lines.push('✓ Valid — no issues found.');
     return lines.join('\n');
   }
 
@@ -20,9 +23,11 @@ export function formatHuman(issues: Issue[], filePath: string): string {
   }
 
   lines.push('─'.repeat(50));
-  const errors = issues.filter(i => i.severity === 'error').length;
-  const warnings = issues.filter(i => i.severity === 'warning').length;
-  lines.push(`✓ ${issues.length} issue${issues.length !== 1 ? 's' : ''} (${errors} error${errors !== 1 ? 's' : ''}, ${warnings} warning${warnings !== 1 ? 's' : ''})`);
+  if (errors > 0) {
+    lines.push(`✗ Invalid — ${errors} error${errors !== 1 ? 's' : ''}${warnings > 0 ? `, ${warnings} warning${warnings !== 1 ? 's' : ''}` : ''}`);
+  } else {
+    lines.push(`⚠ Valid with warnings — ${warnings} warning${warnings !== 1 ? 's' : ''}`);
+  }
 
   return lines.join('\n');
 }
