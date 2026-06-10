@@ -19,9 +19,11 @@ interface ParserState {
   slideIndex: number;
   blockStack: Array<{ type: BlockType; element: SlideElement; startLine: number }>;
   inCodeFence: boolean;
+  codeFenceStartLine: number;
   codeFenceLang: string;
   codeFenceLines: string[];
   inMathBlock: boolean;
+  mathBlockStartLine: number;
   mathLines: string[];
   tableLines: string[];
   inTable: boolean;
@@ -43,9 +45,11 @@ export function parseDocument(src: string, _filePath: string): SlideDSLDocument 
     slideIndex: 0,
     blockStack: [],
     inCodeFence: false,
+    codeFenceStartLine: 0,
     codeFenceLang: '',
     codeFenceLines: [],
     inMathBlock: false,
+    mathBlockStartLine: 0,
     mathLines: [],
     tableLines: [],
     inTable: false,
@@ -113,7 +117,7 @@ function processLine(line: string, lineNum: number, state: ParserState): void {
       const el: SlideElement = {
         type: 'code',
         content: state.codeFenceLines.join('\n'),
-        lineNumber: lineNum,
+        lineNumber: state.codeFenceStartLine,
         attributes: state.codeFenceLang ? { lang: state.codeFenceLang } : undefined,
       };
       state.inCodeFence = false;
@@ -128,7 +132,7 @@ function processLine(line: string, lineNum: number, state: ParserState): void {
   // Math block handling
   if (state.inMathBlock) {
     if (line.trim() === '$$') {
-      const el: SlideElement = { type: 'math', content: state.mathLines.join('\n'), lineNumber: lineNum };
+      const el: SlideElement = { type: 'math', content: state.mathLines.join('\n'), lineNumber: state.mathBlockStartLine };
       state.inMathBlock = false;
       state.mathLines = [];
       appendElement(el, state);
@@ -143,6 +147,7 @@ function processLine(line: string, lineNum: number, state: ParserState): void {
     if (state.inTable) { flushTable(state); }
     if (!state.currentSlide) openSlide({}, lineNum, state);
     state.inCodeFence = true;
+    state.codeFenceStartLine = lineNum;
     state.codeFenceLang = line.slice(3).trim();
     state.codeFenceLines = [];
     return;
@@ -153,6 +158,7 @@ function processLine(line: string, lineNum: number, state: ParserState): void {
     if (state.inTable) { flushTable(state); }
     if (!state.currentSlide) openSlide({}, lineNum, state);
     state.inMathBlock = true;
+    state.mathBlockStartLine = lineNum;
     state.mathLines = [];
     return;
   }
@@ -359,6 +365,7 @@ function appendElement(el: SlideElement, state: ParserState): void {
     const top = state.blockStack[state.blockStack.length - 1];
     if (!top.element.children) top.element.children = [];
     top.element.children.push(el);
+    state.pendingAttrTarget = el;
   } else if (state.currentSlide) {
     state.currentSlide.elements.push(el);
     state.pendingAttrTarget = el;
