@@ -63,7 +63,7 @@ export function runLint(doc: SlideDSLDocument, filePath: string): Issue[] {
 
       // lint/loop-infinite-no-exit
       if (el.animate?.loop === 'infinite') {
-        const hasOut = [...walkElements(slide.elements)].some(
+        const hasOut = el.id != null && [...walkElements(slide.elements)].some(
           e => e.id === el.id && e.animate?.phase === 'out'
         );
         if (!hasOut) {
