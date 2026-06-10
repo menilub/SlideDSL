@@ -21,7 +21,6 @@ interface ParserState {
   inCodeFence: boolean;
   codeFenceLang: string;
   codeFenceLines: string[];
-  codeFenceAttrs: string;
   inMathBlock: boolean;
   mathLines: string[];
   tableLines: string[];
@@ -30,7 +29,7 @@ interface ParserState {
   lineNumber: number;
 }
 
-export function parseDocument(src: string, filePath: string): SlideDSLDocument {
+export function parseDocument(src: string, _filePath: string): SlideDSLDocument {
   const lines = src.split('\n');
   const defaultSection: Section = { slides: [], lineNumber: 1 };
   const state: ParserState = {
@@ -46,7 +45,6 @@ export function parseDocument(src: string, filePath: string): SlideDSLDocument {
     inCodeFence: false,
     codeFenceLang: '',
     codeFenceLines: [],
-    codeFenceAttrs: '',
     inMathBlock: false,
     mathLines: [],
     tableLines: [],
@@ -99,7 +97,7 @@ function processLine(line: string, lineNum: number, state: ParserState): void {
   if (state.phase === 'content' && !state.inCodeFence && !state.inMathBlock) {
     const attrLine = line.match(/^\s*\{(.*)\}\s*$/);
     if (attrLine) {
-      const attrs = parseAttributes(attrLine[1]);
+      const attrs = parseAttributes(line.trim());
       if (state.pendingAttrTarget) {
         applyAttributes(state.pendingAttrTarget, attrs);
         state.pendingAttrTarget = null;
@@ -116,9 +114,8 @@ function processLine(line: string, lineNum: number, state: ParserState): void {
         type: 'code',
         content: state.codeFenceLines.join('\n'),
         lineNumber: lineNum,
-        attributes: state.codeFenceAttrs ? { lang: state.codeFenceLang } : { lang: state.codeFenceLang },
+        attributes: state.codeFenceLang ? { lang: state.codeFenceLang } : undefined,
       };
-      if (state.codeFenceLang) el.attributes = { ...el.attributes, lang: state.codeFenceLang };
       state.inCodeFence = false;
       state.pendingAttrTarget = el;
       appendElement(el, state);
@@ -146,7 +143,6 @@ function processLine(line: string, lineNum: number, state: ParserState): void {
     state.inCodeFence = true;
     state.codeFenceLang = line.slice(3).trim();
     state.codeFenceLines = [];
-    state.codeFenceAttrs = '';
     if (state.inTable) { flushTable(state); }
     return;
   }
@@ -203,9 +199,13 @@ function processLine(line: string, lineNum: number, state: ParserState): void {
   if (blockOpen) {
     if (state.inTable) { flushTable(state); }
     if (!state.currentSlide) openSlide({}, lineNum, state);
-    const blockType = blockOpen[1] as BlockType;
+    const VALID_BLOCK_TYPES = new Set(['container', 'grid', 'column', 'cell', 'chart', 'notes',
+      'hotspot', 'keyframes', 'path', 'shape', 'template', 'diagram']);
+    const blockTypeName = blockOpen[1];
+    if (!VALID_BLOCK_TYPES.has(blockTypeName)) return; // skip unknown blocks
+    const blockType = blockTypeName as BlockType;
     const attrs = blockOpen[2] ? parseAttributes(blockOpen[2]) : {};
-    const el: SlideElement = { type: blockType as any, lineNumber: lineNum, children: [], attributes: attrs };
+    const el: SlideElement = { type: blockType as ElementType, lineNumber: lineNum, children: [], attributes: attrs };
     if (attrs['id']) el.id = attrs['id'];
     state.blockStack.push({ type: blockType, element: el, startLine: lineNum });
     return;
@@ -241,7 +241,7 @@ function processLine(line: string, lineNum: number, state: ParserState): void {
     if (top.type === 'notes') {
       top.element.content = (top.element.content ?? '') + (top.element.content ? '\n' : '') + line;
     } else if (top.type === 'chart' || top.type === 'keyframes' || top.type === 'path' || top.type === 'diagram') {
-      top.element.content = (top.element.content ?? '') + (top.element.content !== undefined ? '\n' : '') + line;
+      top.element.content = (top.element.content ?? '') + (top.element.content ? '\n' : '') + line;
     } else {
       // For container/grid/column/etc., dispatch content as child elements
       if (trimmed) dispatchContent(line, lineNum, state);
@@ -271,7 +271,7 @@ function openSlide(attrs: Record<string, string>, lineNum: number, state: Parser
   if (attrs['id']) slide.id = attrs['id'];
   if (attrs['transition']) slide.transition = attrs['transition'];
   if (attrs['hidden'] === 'true') slide.hidden = true;
-  if (attrs['duration-hint']) slide.durationHint = Number(attrs['duration-hint']);
+  if (attrs['duration-hint']) slide['duration-hint'] = attrs['duration-hint'];
   slide.background = parseBackground(attrs);
   state.currentSlide = slide;
   state.currentSection.slides.push(slide);
@@ -337,7 +337,7 @@ function dispatchContent(line: string, lineNum: number, state: ParserState): voi
   if (trimmed.startsWith('@')) {
     try {
       const dir = parseDirective(trimmed);
-      const el: SlideElement = { type: dir.name as any, attributes: dir.args as any, lineNumber: lineNum };
+      const el: SlideElement = { type: dir.name as ElementType, attributes: dir.args as Record<string, string>, lineNumber: lineNum };
       if (dir.args['id']) el.id = dir.args['id'];
       appendElement(el, state);
     } catch { /* skip unknown directives */ }
@@ -451,6 +451,7 @@ function parseFrontMatterYaml(lines: string[], startLine: number): FrontMatter {
   if (trans) fm.transitions = {
     default: getString(trans, 'default'),
     duration: getString(trans, 'duration'),
+    easing: getString(trans, 'easing'),
   };
 
   return fm;

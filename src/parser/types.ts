@@ -112,7 +112,7 @@ export interface SlideBackground {
 
 export type ElementType =
   | 'heading' | 'paragraph' | 'blockquote' | 'list' | 'table' | 'code' | 'math'
-  | 'image' | 'video' | 'audio' | 'icon'
+  | 'image' | 'video' | 'audio' | 'icon' | 'include' | 'use'
   | 'chart' | 'diagram' | 'shape' | 'hotspot'
   | 'container' | 'column' | 'grid' | 'cell'
   | 'keyframes' | 'path' | 'template';
