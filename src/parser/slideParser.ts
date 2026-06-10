@@ -1,4 +1,4 @@
-import type { SlideDSLDocument, FrontMatter, Section, Slide, SlideElement, ChartData, KeyframeStop } from './types.ts';
+import type { SlideDSLDocument, FrontMatter, Section, Slide, SlideElement, AnimationAttr, ChartData, KeyframeStop } from './types.ts';
 import { ParseError } from './types.ts';
 import { parseAttributes, parseAnimationAttr } from './attrParser.ts';
 import { parseDirective } from './directiveParser.ts';
@@ -328,7 +328,27 @@ function parseBackground(attrs: Record<string, string>): Slide['background'] {
 function applyAttributes(el: SlideElement, attrs: Record<string, string>): void {
   if (attrs['id']) el.id = attrs['id'];
   if (attrs['animate']) {
-    try { el.animate = parseAnimationAttr(attrs['animate']); } catch { /* ignore parse errors */ }
+    try {
+      el.animate = parseAnimationAttr(attrs['animate']);
+    } catch {
+      // Store partial parse so structural validator can catch phase/duration errors
+      const raw = attrs['animate'];
+      const phaseMatch = raw.match(/^(\w+):/);
+      const phase = (phaseMatch?.[1] ?? '') as AnimationAttr['phase'];
+      const afterColon = raw.slice(raw.indexOf(':') + 1).trim().split(/\s+/);
+      const effect = afterColon[0] ?? '';
+      const kv: Record<string, string> = {};
+      for (const p of afterColon.slice(1)) {
+        const eqIdx = p.indexOf('=');
+        if (eqIdx > 0) kv[p.slice(0, eqIdx)] = p.slice(eqIdx + 1);
+      }
+      el.animate = {
+        phase,
+        effect,
+        trigger: kv['trigger'] ?? 'onload',
+        duration: kv['duration'] ?? '',
+      };
+    }
   }
   if (!el.attributes) el.attributes = {};
   Object.assign(el.attributes, attrs);
